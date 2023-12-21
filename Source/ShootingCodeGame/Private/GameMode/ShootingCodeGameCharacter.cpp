@@ -1,6 +1,6 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
-#include "ShootingCodeGameCharacter.h"
+#include "GameMode/ShootingCodeGameCharacter.h"
 #include "Engine/LocalPlayer.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
@@ -10,6 +10,7 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputActionValue.h"
+#include "Kismet/GameplayStatics.h"
 
 DEFINE_LOG_CATEGORY(LogTemplateCharacter);
 
@@ -70,6 +71,46 @@ void AShootingCodeGameCharacter::BeginPlay()
 }
 
 //////////////////////////////////////////////////////////////////////////
+// NetWork
+
+void AShootingCodeGameCharacter::ReqPressF_Implementation()
+{
+	GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::White, TEXT("Junsik Babo Req PressF"));
+	ResPressF();
+}
+
+void AShootingCodeGameCharacter::ResPressF_Implementation()
+{
+	GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::White, TEXT("Junsik Babo Res PressF"));
+}
+
+void AShootingCodeGameCharacter::ResPressFClient_Implementation()
+{
+	GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::White, TEXT("Junsik Babo Res PressFClient"));
+}
+
+void AShootingCodeGameCharacter::ReqShoot_Implementation()
+{
+	ResShoot();
+}
+
+void AShootingCodeGameCharacter::ResShoot_Implementation()
+{
+	PlayAnimMontage(ShootMontage);
+}
+
+void AShootingCodeGameCharacter::ReqReload_Implementation()
+{
+	ResReload();
+}
+
+void AShootingCodeGameCharacter::ResReload_Implementation()
+{
+	PlayAnimMontage(ReloadMontage);
+	UGameplayStatics::GetWorldDeltaSeconds(GetWorld());
+}
+
+//////////////////////////////////////////////////////////////////////////
 // Input
 
 void AShootingCodeGameCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -86,6 +127,15 @@ void AShootingCodeGameCharacter::SetupPlayerInputComponent(UInputComponent* Play
 
 		// Looking
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &AShootingCodeGameCharacter::Look);
+
+		// Shoot
+		EnhancedInputComponent->BindAction(ShootAction, ETriggerEvent::Started, this, &AShootingCodeGameCharacter::Shoot);
+
+		// PressF
+		EnhancedInputComponent->BindAction(PressFAction, ETriggerEvent::Started, this, &AShootingCodeGameCharacter::PressF);
+
+		// PressR
+		EnhancedInputComponent->BindAction(ReloadAction, ETriggerEvent::Started, this, &AShootingCodeGameCharacter::PressR);
 	}
 	else
 	{
@@ -128,3 +178,22 @@ void AShootingCodeGameCharacter::Look(const FInputActionValue& Value)
 		AddControllerPitchInput(LookAxisVector.Y);
 	}
 }
+
+void AShootingCodeGameCharacter::Shoot(const FInputActionValue& Value)
+{
+	GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::Yellow, TEXT("Junsik Babo Shoot"));
+	ReqShoot();
+}
+
+void AShootingCodeGameCharacter::PressF(const FInputActionValue& Value)
+{
+	GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::Yellow, TEXT("Junsik Babo PressF"));
+	ReqPressF();
+}
+
+void AShootingCodeGameCharacter::PressR(const FInputActionValue& Value)
+{
+	ReqReload();
+}
+
+
