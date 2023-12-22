@@ -11,6 +11,7 @@
 #include "EnhancedInputSubsystems.h"
 #include "InputActionValue.h"
 #include "Kismet/GameplayStatics.h"
+#include "Net/UnrealNetwork.h"
 
 DEFINE_LOG_CATEGORY(LogTemplateCharacter);
 
@@ -55,6 +56,14 @@ AShootingCodeGameCharacter::AShootingCodeGameCharacter()
 	// are set in the derived blueprint asset named ThirdPersonCharacter (to avoid direct content references in C++)
 }
 
+void AShootingCodeGameCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	// 아래의 함수를 사용해서 서버에서 동기화를 시켜줍니다.
+	DOREPLIFETIME(AShootingCodeGameCharacter, ControlRot);
+}
+
 void AShootingCodeGameCharacter::BeginPlay()
 {
 	// Call the base class  
@@ -68,6 +77,18 @@ void AShootingCodeGameCharacter::BeginPlay()
 			Subsystem->AddMappingContext(DefaultMappingContext, 0);
 		}
 	}
+}
+
+void AShootingCodeGameCharacter::Tick(float DeltaSeconds)
+{
+	Super::Tick(DeltaSeconds);
+	
+	// 서버에서만 정보를 넣어줍니다.
+	if (HasAuthority() == true)
+	{
+		ControlRot = GetControlRotation();
+	}
+
 }
 
 //////////////////////////////////////////////////////////////////////////

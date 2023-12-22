@@ -84,6 +84,9 @@ protected:
 	// To add mapping context
 	virtual void BeginPlay();
 
+	// 이벤트 틱 추가
+	virtual void Tick(float DeltaSeconds) override;
+
 public:
 	/** Returns CameraBoom subobject **/
 	FORCEINLINE class USpringArmComponent* GetCameraBoom() const { return CameraBoom; }
@@ -119,5 +122,9 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	UAnimMontage* ReloadMontage;
+
+	// 서버에서 클라이언트로 이 값을 보내줍니다.
+	UPROPERTY(Replicated, BlueprintReadWrite)
+	FRotator ControlRot;
 };
 
