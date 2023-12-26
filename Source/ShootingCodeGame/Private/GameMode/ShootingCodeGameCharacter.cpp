@@ -11,7 +11,9 @@
 #include "EnhancedInputSubsystems.h"
 #include "InputActionValue.h"
 #include "Kismet/GameplayStatics.h"
+
 #include "Net/UnrealNetwork.h"
+#include "GameMode/ShootingPlayerState.h"
 
 DEFINE_LOG_CATEGORY(LogTemplateCharacter);
 
@@ -103,6 +105,19 @@ void AShootingCodeGameCharacter::ReqPressF_Implementation()
 void AShootingCodeGameCharacter::ResPressF_Implementation()
 {
 	GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::White, TEXT("Junsik Babo Res PressF"));
+	
+	// 캐릭터가 가지고 있는 PlayerState 를 형변환을 통해 가져옵니다.
+	AShootingPlayerState* ps = Cast<AShootingPlayerState>(GetPlayerState());
+	if (false == IsValid(ps))
+	{
+		// 아래 출력문의 맨 앞에 -1 을 넣는 것은 Default 로 아무런 설정을 하지 않을 때 넣습니다.
+		// 하지만 이 구분을 명확하게 하고싶다면(예로 서버에러, 클라이언트 에러 등)에러 발생 위치별로 설정이 가능합니다.
+		// 이는 추가 공부를 하면 됩니다. 이러한 경우를 예외 처리(Exception 관련 처리)를 하는 것이라고 보면 됩니다.
+		GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::Red, TEXT("PS is not valid !!"));
+		return;
+	}
+
+	ps->AddDamage(10.0f);
 }
 
 void AShootingCodeGameCharacter::ResPressFClient_Implementation()
