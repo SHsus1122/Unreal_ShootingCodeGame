@@ -14,6 +14,7 @@
 
 #include "Net/UnrealNetwork.h"
 #include "GameMode/ShootingPlayerState.h"
+#include "Blueprints/Weapon.h"
 
 DEFINE_LOG_CATEGORY(LogTemplateCharacter);
 
@@ -64,6 +65,7 @@ void AShootingCodeGameCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProp
 
 	// 아래의 함수를 사용해서 서버에서 동기화를 시켜줍니다.
 	DOREPLIFETIME(AShootingCodeGameCharacter, ControlRot);
+	//DOREPLIFETIME(AShootingCodeGameCharacter, m_EquipWeapon);
 }
 
 void AShootingCodeGameCharacter::BeginPlay()
@@ -93,31 +95,54 @@ void AShootingCodeGameCharacter::Tick(float DeltaSeconds)
 
 }
 
+float AShootingCodeGameCharacter::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
+{
+	GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::Yellow, 
+		FString::Printf(TEXT("TakeDamage DamageAmount = %f, EventInstigator = %s, DamageCasuse = %s"), 
+		DamageAmount, 
+		*EventInstigator->GetName(), 
+		*DamageCauser->GetName()));
+
+	AShootingPlayerState* ps = Cast<AShootingPlayerState>(GetPlayerState());
+	if (false == IsValid(ps))
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::Red, TEXT("PS is not valid !!"));
+		return 0.0f;
+	}
+
+	ps->AddDamage(DamageAmount);
+	
+	return DamageAmount;
+}
+
 //////////////////////////////////////////////////////////////////////////
 // NetWork
 
 void AShootingCodeGameCharacter::ReqPressF_Implementation()
 {
 	GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::White, TEXT("Junsik Babo Req PressF"));
-	ResPressF();
+	AActor* pNearestActor = FindNearestWeapon();
+
+	if (false == IsValid(pNearestActor))
+		return;
+
+	pNearestActor->SetOwner(GetController());
+
+	ResPressF(pNearestActor);
 }
 
-void AShootingCodeGameCharacter::ResPressF_Implementation()
+void AShootingCodeGameCharacter::ResPressF_Implementation(AActor* PickActor)
 {
 	GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::White, TEXT("Junsik Babo Res PressF"));
 	
-	// 캐릭터가 가지고 있는 PlayerState 를 형변환을 통해 가져옵니다.
-	AShootingPlayerState* ps = Cast<AShootingPlayerState>(GetPlayerState());
-	if (false == IsValid(ps))
-	{
-		// 아래 출력문의 맨 앞에 -1 을 넣는 것은 Default 로 아무런 설정을 하지 않을 때 넣습니다.
-		// 하지만 이 구분을 명확하게 하고싶다면(예로 서버에러, 클라이언트 에러 등)에러 발생 위치별로 설정이 가능합니다.
-		// 이는 추가 공부를 하면 됩니다. 이러한 경우를 예외 처리(Exception 관련 처리)를 하는 것이라고 보면 됩니다.
-		GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::Red, TEXT("PS is not valid !!"));
-		return;
-	}
+	m_EquipWeapon = PickActor;
 
-	ps->AddDamage(10.0f);
+	IWeaponInterface* InterfaceObj = Cast<IWeaponInterface>(m_EquipWeapon);
+
+	if (nullptr == InterfaceObj)
+		return;
+
+	InterfaceObj->Execute_EventPickUp(m_EquipWeapon, this);
 }
 
 void AShootingCodeGameCharacter::ResPressFClient_Implementation()
@@ -125,14 +150,21 @@ void AShootingCodeGameCharacter::ResPressFClient_Implementation()
 	GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::White, TEXT("Junsik Babo Res PressFClient"));
 }
 
-void AShootingCodeGameCharacter::ReqShoot_Implementation()
+void AShootingCodeGameCharacter::ReqTrigger_Implementation()
 {
-	ResShoot();
+	ResTrigger();
 }
 
-void AShootingCodeGameCharacter::ResShoot_Implementation()
+void AShootingCodeGameCharacter::ResTrigger_Implementation()
 {
-	PlayAnimMontage(ShootMontage);
+	// 인터페이스로 캐스팅 하는 방법(C++ 에서의 상속)
+	IWeaponInterface* InterfaceObj = Cast<IWeaponInterface>(m_EquipWeapon);
+
+	if (nullptr == InterfaceObj)
+		return;
+
+	// 인터페이스 호출 - 인자값(객체), 파라미터(우리는 사용하지 않아서 없음)
+	InterfaceObj->Execute_EventTrigger(m_EquipWeapon);
 }
 
 void AShootingCodeGameCharacter::ReqReload_Implementation()
@@ -142,7 +174,13 @@ void AShootingCodeGameCharacter::ReqReload_Implementation()
 
 void AShootingCodeGameCharacter::ResReload_Implementation()
 {
-	PlayAnimMontage(ReloadMontage);
+	IWeaponInterface* InterfaceObj = Cast<IWeaponInterface>(m_EquipWeapon);
+
+	if (nullptr == InterfaceObj)
+		return;
+
+	InterfaceObj->Execute_EventReload(m_EquipWeapon);
+
 	UGameplayStatics::GetWorldDeltaSeconds(GetWorld());
 }
 
@@ -164,14 +202,17 @@ void AShootingCodeGameCharacter::SetupPlayerInputComponent(UInputComponent* Play
 		// Looking
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &AShootingCodeGameCharacter::Look);
 
-		// Shoot
-		EnhancedInputComponent->BindAction(ShootAction, ETriggerEvent::Started, this, &AShootingCodeGameCharacter::Shoot);
+		// Trigger
+		EnhancedInputComponent->BindAction(TriggerAction, ETriggerEvent::Started, this, &AShootingCodeGameCharacter::Trigger);
 
 		// PressF
 		EnhancedInputComponent->BindAction(PressFAction, ETriggerEvent::Started, this, &AShootingCodeGameCharacter::PressF);
 
 		// PressR
 		EnhancedInputComponent->BindAction(ReloadAction, ETriggerEvent::Started, this, &AShootingCodeGameCharacter::PressR);
+
+		// PressG
+		EnhancedInputComponent->BindAction(PressGAction, ETriggerEvent::Started, this, &AShootingCodeGameCharacter::PressG);
 	}
 	else
 	{
@@ -215,10 +256,10 @@ void AShootingCodeGameCharacter::Look(const FInputActionValue& Value)
 	}
 }
 
-void AShootingCodeGameCharacter::Shoot(const FInputActionValue& Value)
+void AShootingCodeGameCharacter::Trigger(const FInputActionValue& Value)
 {
 	GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::Yellow, TEXT("Junsik Babo Shoot"));
-	ReqShoot();
+	ReqTrigger();
 }
 
 void AShootingCodeGameCharacter::PressF(const FInputActionValue& Value)
@@ -232,4 +273,101 @@ void AShootingCodeGameCharacter::PressR(const FInputActionValue& Value)
 	ReqReload();
 }
 
+void AShootingCodeGameCharacter::PressG(const FInputActionValue& Value)
+{
+	GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::Yellow, TEXT("Junsik Babo PressG"));
+	ReqPressG();
+}
+
+void AShootingCodeGameCharacter::EquipTestWeapon(TSubclassOf<class AWeapon> WeaponClass)
+{
+	// 서버에서만 무기를 스폰 시키기 위해서 해줍니다.
+	if (false == HasAuthority())
+		return;
+
+	// 무기 스폰 및 좌표 초기값 지정
+	m_EquipWeapon = GetWorld()->SpawnActor<AWeapon>(WeaponClass, FVector(0, 0, 0), FRotator(0, 0, 0));
+
+	// 형변환 통해서 가져오기 실패 시 아무것도 하지 않음(return)
+	AWeapon* pWeapon = Cast<AWeapon>(m_EquipWeapon);
+	if (false == IsValid(pWeapon))
+		return;
+
+	pWeapon->m_pOwnChar = this;
+
+	// 해당 컨트롤러에 Owner 즉, 소유권을 부여해줍니다.
+	TestWeaponSetOwner();
+
+	// 임시로 Weapon 붙이기 - SnapToTarget 즉 무기를 붙이되 스케일은 미포함, 소켓 이름은 Weapon
+	m_EquipWeapon->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, FName("Weapon"));
+}
+
+void AShootingCodeGameCharacter::TestWeaponSetOwner()
+{
+	if (IsValid(GetController()))
+	{
+		m_EquipWeapon->SetOwner(GetController());
+		return;
+	}
+
+	FTimerManager& tm = GetWorld()->GetTimerManager();
+	tm.SetTimer(th_BindSetOwner, this, &AShootingCodeGameCharacter::TestWeaponSetOwner, 0.1f, false);
+}
+
+AActor* AShootingCodeGameCharacter::FindNearestWeapon()
+{
+	// 주변의 무기를 모두 가져와야 하기 때문에 배열로 변수 선언
+	TArray<AActor*> actors;
+	// 액터 리스트, 검색할 클래스 명
+	GetCapsuleComponent()->GetOverlappingActors(actors, AWeapon::StaticClass());
+
+	// 기본 거리값이 0 이면 탐색이 의미가 없기 때문에 탐색 범위 크기를 아래처럼 크게 해줍니다.
+	double nearestDist = 9999999.0f;
+	// 검출된 무기를 담을 변수입니다.
+	AActor* pNearestActor = nullptr;
+	for (AActor* pTarget : actors)
+	{
+		// 거리 구하는 기능을 이용합니다.(FVector::Distance)
+		// 오버랩 된 액터로부터 무기 까지의 거리 구하는 함수
+		double dist = FVector::Distance(GetActorLocation(), pTarget->GetActorLocation());
+		// 조건문을 통해서 거리값이 nearestDist 보다 작으면 가져오게 해줍니다.
+		if (dist >= nearestDist)
+			continue;
+
+		nearestDist = dist;
+		pNearestActor = pTarget;
+	}
+
+	return pNearestActor;
+}
+
+void AShootingCodeGameCharacter::ReqPressG_Implementation()
+{
+	GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::White, TEXT("Junsik Babo Req PressGG"));
+	AActor* pNearestActor = FindNearestWeapon();
+
+	if (false == IsValid(pNearestActor))
+		return;
+
+	ResPressG(pNearestActor);
+}
+
+void AShootingCodeGameCharacter::ResPressG_Implementation(AActor* PickActor)
+{
+	GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::White, TEXT("Junsik Babo Res PressGG"));
+
+	m_EquipWeapon = PickActor;
+
+	IWeaponInterface* InterfaceObj = Cast<IWeaponInterface>(m_EquipWeapon);
+
+	if (nullptr == InterfaceObj)
+		return;
+
+	InterfaceObj->Execute_EventDrop(m_EquipWeapon, this);
+}
+
+void AShootingCodeGameCharacter::ResPressGClient_Implementation()
+{
+
+}
 

@@ -35,7 +35,48 @@ public:
 
 	virtual void EventShoot_Implementation() override;
 
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+	void EventReload();
+
+	virtual void EventReload_Implementation() override;
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+	void EventPickUp(ACharacter* pOwnChar);
+
+	virtual void EventPickUp_Implementation(ACharacter* pOwnChar) override;
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+	void EventDrop(ACharacter* pOwnChar);
+
+	virtual void EventDrop_Implementation(ACharacter* pOwnChar) override;
+
+public:
+	// 서버로부터 호출될 사격용 이벤트 함수(RPC 함수)
+	UFUNCTION(Server, Reliable)
+	void ReqShoot(FVector vStart, FVector vEnd);
+
+public:
+	float GetFireStartLenghth();
+
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	class UStaticMeshComponent* WeaponMesh;
+
+	// 캐릭터 저장을 위한 변수
+	UPROPERTY(Replicated, BlueprintReadWrite)
+	ACharacter* m_pOwnChar;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UAnimMontage* m_ShootMontage;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UAnimMontage* m_ReloadMontage;
+
+	// 총기 발사 이펙트 추가
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UParticleSystem* m_FireEffect;
+
+	// 총기 발사 사운드 추가
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	USoundBase* m_SoundBase;
 };

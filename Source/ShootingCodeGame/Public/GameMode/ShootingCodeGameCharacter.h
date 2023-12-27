@@ -44,9 +44,9 @@ class AShootingCodeGameCharacter : public ACharacter
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	UInputAction* LookAction;
 
-	/** ShootAction Input Action */
+	/** TriggerAction Input Action */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
-	UInputAction* ShootAction;
+	UInputAction* TriggerAction;
 
 	/** PressFAction Input Action */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
@@ -55,6 +55,10 @@ class AShootingCodeGameCharacter : public ACharacter
 	/** ReloadAction Input Action */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	UInputAction* ReloadAction;
+
+	/** ReloadAction Input Action */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+	UInputAction* PressGAction;
 
 public:
 	AShootingCodeGameCharacter();
@@ -68,14 +72,17 @@ protected:
 	/** Called for looking input */
 	void Look(const FInputActionValue& Value);
 			
-	/** Called for Shoot input */
-	void Shoot(const FInputActionValue& Value);
+	/** Called for Trigger input */
+	void Trigger(const FInputActionValue& Value);
 
 	/** Called for PressF input */
 	void PressF(const FInputActionValue& Value);
 
 	/** Called for PressR input */
 	void PressR(const FInputActionValue& Value);
+
+	/** Called for PressG input */
+	void PressG(const FInputActionValue& Value);
 
 protected:
 	// APawn interface
@@ -86,6 +93,8 @@ protected:
 
 	// 이벤트 틱 추가
 	virtual void Tick(float DeltaSeconds) override;
+
+	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, AActor* DamageCauser) override;
 
 public:
 	/** Returns CameraBoom subobject **/
@@ -99,16 +108,25 @@ public:
 	void ReqPressF();
 
 	UFUNCTION(NetMulticast, Reliable)
-	void ResPressF();
+	void ResPressF(AActor* PickActor);
 
 	UFUNCTION(Client, Reliable)
 	void ResPressFClient();
 
-	UFUNCTION(Server, Reliable)
-	void ReqShoot();
+	UFUNCTION(NetMulticast, Reliable)
+	void ReqPressG();
 
 	UFUNCTION(NetMulticast, Reliable)
-	void ResShoot();
+	void ResPressG(AActor* PickActor);
+
+	UFUNCTION(Client, Reliable)
+	void ResPressGClient();
+
+	UFUNCTION(Server, Reliable)
+	void ReqTrigger();
+
+	UFUNCTION(NetMulticast, Reliable)
+	void ResTrigger();
 
 	UFUNCTION(Server, Reliable)
 	void ReqReload();
@@ -117,14 +135,25 @@ public:
 	void ResReload();
 
 public:
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	UAnimMontage* ShootMontage;
+	// Weapon 을 상속받고 있는 클래스가 들어올 수 있기에 변수는 클래스로 합니다.
+	UFUNCTION(BlueprintCallable)
+	void EquipTestWeapon(TSubclassOf<class AWeapon> WeaponClass);
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	UAnimMontage* ReloadMontage;
+	UFUNCTION()
+	void TestWeaponSetOwner();
 
+	// 무기 줍기를 위한 변수 생성
+	AActor* FindNearestWeapon();
+
+public:
 	// 서버에서 클라이언트로 이 값을 보내줍니다.
 	UPROPERTY(Replicated, BlueprintReadWrite)
 	FRotator ControlRot;
+
+	// 캐릭터에서 가지고 있을 무기 변수
+	UPROPERTY(BlueprintReadWrite)
+	AActor* m_EquipWeapon;
+
+	FTimerHandle th_BindSetOwner;
 };
 
