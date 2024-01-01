@@ -63,8 +63,10 @@ void AShootingCodeGameCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProp
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	// 아래의 함수를 사용해서 서버에서 동기화를 시켜줍니다.
+	// (Replicate 관련) 아래의 함수를 사용해서 서버에서 동기화를 시켜줍니다.
 	DOREPLIFETIME(AShootingCodeGameCharacter, ControlRot);
+
+	// 시작부터 무기를 캐릭터에 붙여줍니다.
 	//DOREPLIFETIME(AShootingCodeGameCharacter, m_EquipWeapon);
 }
 
@@ -115,12 +117,22 @@ float AShootingCodeGameCharacter::TakeDamage(float DamageAmount, FDamageEvent co
 	return DamageAmount;
 }
 
+
 //////////////////////////////////////////////////////////////////////////
 // NetWork
 
-void AShootingCodeGameCharacter::ReqPressF_Implementation()
+// ============================================= [ TakeWeapon ]
+// 1. (F 키 입력 이벤트 발생)무기 획득 함수 입력키를 바탕으로 호출
+void AShootingCodeGameCharacter::TakeWeapon(const FInputActionValue& Value)
 {
-	GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::White, TEXT("Junsik Babo Req PressF"));
+	GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::Yellow, TEXT("Junsik Babo TakeWeapon"));
+	RequestTakeWeapon();
+}
+
+// 2. 무기 획득 함수 Server 로 관련 코드들을 실행 및 Response 함수 호출
+void AShootingCodeGameCharacter::RequestTakeWeapon_Implementation()
+{
+	GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::White, TEXT("Junsik Babo Req RequestTakeWeapon"));
 	AActor* pNearestActor = FindNearestWeapon();
 
 	if (false == IsValid(pNearestActor))
@@ -128,12 +140,13 @@ void AShootingCodeGameCharacter::ReqPressF_Implementation()
 
 	pNearestActor->SetOwner(GetController());
 
-	ResPressF(pNearestActor);
+	ResponseTakeWeapon(pNearestActor);
 }
 
-void AShootingCodeGameCharacter::ResPressF_Implementation(AActor* PickActor)
+// 3. Multicast 기반 함수를 통해 클라이언트와 서버 모두에게 전송
+void AShootingCodeGameCharacter::ResponseTakeWeapon_Implementation(AActor* PickActor)
 {
-	GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::White, TEXT("Junsik Babo Res PressF"));
+	GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::White, TEXT("Junsik Babo Res ResponseTakeWeapon"));
 	
 	m_EquipWeapon = PickActor;
 
@@ -145,34 +158,65 @@ void AShootingCodeGameCharacter::ResPressF_Implementation(AActor* PickActor)
 	InterfaceObj->Execute_EventPickUp(m_EquipWeapon, this);
 }
 
-void AShootingCodeGameCharacter::ResPressFClient_Implementation()
+// 4. 클라이언트로부터 호출될 함수
+void AShootingCodeGameCharacter::ResponseTakeWeaponClient_Implementation()
 {
-	GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::White, TEXT("Junsik Babo Res PressFClient"));
+	GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::White, TEXT("Junsik Babo Res ResponseTakeWeaponClient"));
+}
+// ===========================================================
+
+
+// ============================================= [ DropWeapon ]
+void AShootingCodeGameCharacter::DropWeapon(const FInputActionValue& Value)
+{
+	GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::Yellow, TEXT("Junsik Babo DropWeapon"));
+	RequestDropWeapon();
 }
 
-void AShootingCodeGameCharacter::ReqTrigger_Implementation()
+void AShootingCodeGameCharacter::RequestDropWeapon_Implementation()
 {
-	ResTrigger();
+	GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::White, TEXT("Junsik Babo Request DropWeapon"));
+	AActor* pNearestActor = FindNearestWeapon();
+
+	if (false == IsValid(pNearestActor))
+		return;
+
+	ResponseDropWeapon(pNearestActor);
 }
 
-void AShootingCodeGameCharacter::ResTrigger_Implementation()
+void AShootingCodeGameCharacter::ResponseDropWeapon_Implementation(AActor* PickActor)
 {
-	// 인터페이스로 캐스팅 하는 방법(C++ 에서의 상속)
+	GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::White, TEXT("Junsik Babo Response DropWeapon"));
+
+	m_EquipWeapon = PickActor;
+
 	IWeaponInterface* InterfaceObj = Cast<IWeaponInterface>(m_EquipWeapon);
 
 	if (nullptr == InterfaceObj)
 		return;
 
-	// 인터페이스 호출 - 인자값(객체), 파라미터(우리는 사용하지 않아서 없음)
-	InterfaceObj->Execute_EventTrigger(m_EquipWeapon);
+	InterfaceObj->Execute_EventDrop(m_EquipWeapon, this);
 }
 
-void AShootingCodeGameCharacter::ReqReload_Implementation()
+void AShootingCodeGameCharacter::ResponseDropWeaponClient_Implementation()
 {
-	ResReload();
+
+}
+// ===========================================================
+
+
+// ============================================= [ Reload ]
+void AShootingCodeGameCharacter::Reload(const FInputActionValue& Value)
+{
+	RequestReload();
 }
 
-void AShootingCodeGameCharacter::ResReload_Implementation()
+void AShootingCodeGameCharacter::RequestReload_Implementation()
+{
+	ResponseReload();
+}
+
+void AShootingCodeGameCharacter::ResponseReload_Implementation()
 {
 	IWeaponInterface* InterfaceObj = Cast<IWeaponInterface>(m_EquipWeapon);
 
@@ -183,9 +227,37 @@ void AShootingCodeGameCharacter::ResReload_Implementation()
 
 	UGameplayStatics::GetWorldDeltaSeconds(GetWorld());
 }
+// ===========================================================
+
+
+// ============================================= [ Trigger ]
+void AShootingCodeGameCharacter::Trigger(const FInputActionValue& Value)
+{
+	GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::Yellow, TEXT("Junsik Babo Shoot"));
+	RequestTrigger();
+}
+
+void AShootingCodeGameCharacter::RequestTrigger_Implementation()
+{
+	ResponseTrigger();
+}
+
+void AShootingCodeGameCharacter::ResponseTrigger_Implementation()
+{
+	// 인터페이스로 캐스팅 하는 방법(C++ 에서의 상속)
+	IWeaponInterface* InterfaceObj = Cast<IWeaponInterface>(m_EquipWeapon);
+
+	if (nullptr == InterfaceObj)
+		return;
+
+	// 인터페이스 호출 - 인자값(객체), 파라미터(우리는 사용하지 않아서 없음)
+	InterfaceObj->Execute_EventTrigger(m_EquipWeapon);
+}
+// ===========================================================
+
 
 //////////////////////////////////////////////////////////////////////////
-// Input
+// Input Action Binding
 
 void AShootingCodeGameCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
@@ -205,20 +277,24 @@ void AShootingCodeGameCharacter::SetupPlayerInputComponent(UInputComponent* Play
 		// Trigger
 		EnhancedInputComponent->BindAction(TriggerAction, ETriggerEvent::Started, this, &AShootingCodeGameCharacter::Trigger);
 
-		// PressF
-		EnhancedInputComponent->BindAction(PressFAction, ETriggerEvent::Started, this, &AShootingCodeGameCharacter::PressF);
+		// TakeWeapon
+		EnhancedInputComponent->BindAction(TakeWeaponAction, ETriggerEvent::Started, this, &AShootingCodeGameCharacter::TakeWeapon);
 
-		// PressR
-		EnhancedInputComponent->BindAction(ReloadAction, ETriggerEvent::Started, this, &AShootingCodeGameCharacter::PressR);
+		// Reload
+		EnhancedInputComponent->BindAction(ReloadAction, ETriggerEvent::Started, this, &AShootingCodeGameCharacter::Reload);
 
-		// PressG
-		EnhancedInputComponent->BindAction(PressGAction, ETriggerEvent::Started, this, &AShootingCodeGameCharacter::PressG);
+		// DropWeapon
+		EnhancedInputComponent->BindAction(DropWeaponAction, ETriggerEvent::Started, this, &AShootingCodeGameCharacter::DropWeapon);
 	}
 	else
 	{
 		UE_LOG(LogTemplateCharacter, Error, TEXT("'%s' Failed to find an Enhanced Input component! This template is built to use the Enhanced Input system. If you intend to use the legacy system, then you will need to update this C++ file."), *GetNameSafe(this));
 	}
 }
+
+
+//////////////////////////////////////////////////////////////////////////
+// Custom Function
 
 void AShootingCodeGameCharacter::Move(const FInputActionValue& Value)
 {
@@ -243,6 +319,7 @@ void AShootingCodeGameCharacter::Move(const FInputActionValue& Value)
 	}
 }
 
+
 void AShootingCodeGameCharacter::Look(const FInputActionValue& Value)
 {
 	// input is a Vector2D
@@ -256,28 +333,6 @@ void AShootingCodeGameCharacter::Look(const FInputActionValue& Value)
 	}
 }
 
-void AShootingCodeGameCharacter::Trigger(const FInputActionValue& Value)
-{
-	GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::Yellow, TEXT("Junsik Babo Shoot"));
-	ReqTrigger();
-}
-
-void AShootingCodeGameCharacter::PressF(const FInputActionValue& Value)
-{
-	GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::Yellow, TEXT("Junsik Babo PressF"));
-	ReqPressF();
-}
-
-void AShootingCodeGameCharacter::PressR(const FInputActionValue& Value)
-{
-	ReqReload();
-}
-
-void AShootingCodeGameCharacter::PressG(const FInputActionValue& Value)
-{
-	GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::Yellow, TEXT("Junsik Babo PressG"));
-	ReqPressG();
-}
 
 void AShootingCodeGameCharacter::EquipTestWeapon(TSubclassOf<class AWeapon> WeaponClass)
 {
@@ -302,6 +357,7 @@ void AShootingCodeGameCharacter::EquipTestWeapon(TSubclassOf<class AWeapon> Weap
 	m_EquipWeapon->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, FName("Weapon"));
 }
 
+
 void AShootingCodeGameCharacter::TestWeaponSetOwner()
 {
 	if (IsValid(GetController()))
@@ -313,6 +369,7 @@ void AShootingCodeGameCharacter::TestWeaponSetOwner()
 	FTimerManager& tm = GetWorld()->GetTimerManager();
 	tm.SetTimer(th_BindSetOwner, this, &AShootingCodeGameCharacter::TestWeaponSetOwner, 0.1f, false);
 }
+
 
 AActor* AShootingCodeGameCharacter::FindNearestWeapon()
 {
@@ -340,34 +397,3 @@ AActor* AShootingCodeGameCharacter::FindNearestWeapon()
 
 	return pNearestActor;
 }
-
-void AShootingCodeGameCharacter::ReqPressG_Implementation()
-{
-	GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::White, TEXT("Junsik Babo Req PressGG"));
-	AActor* pNearestActor = FindNearestWeapon();
-
-	if (false == IsValid(pNearestActor))
-		return;
-
-	ResPressG(pNearestActor);
-}
-
-void AShootingCodeGameCharacter::ResPressG_Implementation(AActor* PickActor)
-{
-	GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::White, TEXT("Junsik Babo Res PressGG"));
-
-	m_EquipWeapon = PickActor;
-
-	IWeaponInterface* InterfaceObj = Cast<IWeaponInterface>(m_EquipWeapon);
-
-	if (nullptr == InterfaceObj)
-		return;
-
-	InterfaceObj->Execute_EventDrop(m_EquipWeapon, this);
-}
-
-void AShootingCodeGameCharacter::ResPressGClient_Implementation()
-{
-
-}
-

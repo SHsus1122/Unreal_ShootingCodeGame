@@ -48,17 +48,17 @@ class AShootingCodeGameCharacter : public ACharacter
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	UInputAction* TriggerAction;
 
-	/** PressFAction Input Action */
+	/** TakeWeaponAction Input Action */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
-	UInputAction* PressFAction;
+	UInputAction* TakeWeaponAction;
 
 	/** ReloadAction Input Action */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	UInputAction* ReloadAction;
 
-	/** ReloadAction Input Action */
+	/** DropWeaponAction Input Action */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
-	UInputAction* PressGAction;
+	UInputAction* DropWeaponAction;
 
 public:
 	AShootingCodeGameCharacter();
@@ -75,14 +75,14 @@ protected:
 	/** Called for Trigger input */
 	void Trigger(const FInputActionValue& Value);
 
-	/** Called for PressF input */
-	void PressF(const FInputActionValue& Value);
+	/** Called for TakeWeapon input */
+	void TakeWeapon(const FInputActionValue& Value);
 
-	/** Called for PressR input */
-	void PressR(const FInputActionValue& Value);
+	/** Called for Reload input */
+	void Reload(const FInputActionValue& Value);
 
-	/** Called for PressG input */
-	void PressG(const FInputActionValue& Value);
+	/** Called for DropWeapon input */
+	void DropWeapon(const FInputActionValue& Value);
 
 protected:
 	// APawn interface
@@ -105,34 +105,34 @@ public:
 public:
 	// 네트워크 코드 영역
 	UFUNCTION(Server, Reliable)
-	void ReqPressF();
+	void RequestTakeWeapon();
 
 	UFUNCTION(NetMulticast, Reliable)
-	void ResPressF(AActor* PickActor);
+	void ResponseTakeWeapon(AActor* PickActor);
 
 	UFUNCTION(Client, Reliable)
-	void ResPressFClient();
+	void ResponseTakeWeaponClient();
 
 	UFUNCTION(NetMulticast, Reliable)
-	void ReqPressG();
+	void RequestDropWeapon();
 
 	UFUNCTION(NetMulticast, Reliable)
-	void ResPressG(AActor* PickActor);
+	void ResponseDropWeapon(AActor* PickActor);
 
 	UFUNCTION(Client, Reliable)
-	void ResPressGClient();
+	void ResponseDropWeaponClient();
 
 	UFUNCTION(Server, Reliable)
-	void ReqTrigger();
+	void RequestTrigger();
 
 	UFUNCTION(NetMulticast, Reliable)
-	void ResTrigger();
+	void ResponseTrigger();
 
 	UFUNCTION(Server, Reliable)
-	void ReqReload();
+	void RequestReload();
 
 	UFUNCTION(NetMulticast, Reliable)
-	void ResReload();
+	void ResponseReload();
 
 public:
 	// Weapon 을 상속받고 있는 클래스가 들어올 수 있기에 변수는 클래스로 합니다.
