@@ -75,7 +75,7 @@ public:
 	class UStaticMeshComponent* WeaponMesh;
 
 	// 캐릭터 저장을 위한 변수
-	UPROPERTY(Replicated, BlueprintReadWrite)
+	UPROPERTY(BlueprintReadWrite)
 	ACharacter* m_pOwnChar;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)

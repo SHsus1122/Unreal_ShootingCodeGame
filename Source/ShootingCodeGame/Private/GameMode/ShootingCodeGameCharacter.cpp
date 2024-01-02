@@ -178,26 +178,23 @@ void AShootingCodeGameCharacter::DropWeapon(const FInputActionValue& Value)
 void AShootingCodeGameCharacter::RequestDropWeapon_Implementation()
 {
 	GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::White, TEXT("[ Server ] Request DropWeapon"));
-	AActor* pNearestActor = FindNearestWeapon();
-
-	if (false == IsValid(pNearestActor))
+	if (false == IsValid(m_EquipWeapon))
 		return;
 
-	ResponseDropWeapon(pNearestActor);
+	m_EquipWeapon->SetOwner(nullptr);
+	ResponseDropWeapon();
 }
 
-void AShootingCodeGameCharacter::ResponseDropWeapon_Implementation(AActor* PickActor)
+void AShootingCodeGameCharacter::ResponseDropWeapon_Implementation()
 {
 	GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::White, TEXT("[ Multicast ] Response DropWeapon"));
 
-	m_EquipWeapon = PickActor;
-
 	IWeaponInterface* InterfaceObj = Cast<IWeaponInterface>(m_EquipWeapon);
-
 	if (nullptr == InterfaceObj)
 		return;
 
 	InterfaceObj->Execute_EventDrop(m_EquipWeapon, this);
+	m_EquipWeapon = nullptr;
 }
 
 void AShootingCodeGameCharacter::ResponseDropWeaponClient_Implementation()

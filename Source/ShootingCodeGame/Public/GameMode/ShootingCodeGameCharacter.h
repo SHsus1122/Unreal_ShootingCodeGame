@@ -117,7 +117,7 @@ public:
 	void RequestDropWeapon();
 
 	UFUNCTION(NetMulticast, Reliable)
-	void ResponseDropWeapon(AActor* PickActor);
+	void ResponseDropWeapon();
 
 	UFUNCTION(Client, Reliable)
 	void ResponseDropWeaponClient();

@@ -28,7 +28,7 @@ void AWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeP
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	// 아래의 함수를 사용해서 서버에서 동기화를 시켜줍니다.
-	DOREPLIFETIME(AWeapon, m_pOwnChar);
+	DOREPLIFETIME(AWeapon, m_Ammo);
 }
 
 // Called when the game starts or when spawned
@@ -89,6 +89,7 @@ void AWeapon::EventReload_Implementation()
 void AWeapon::EventPickUp_Implementation(ACharacter* pOwnChar)
 {
 	m_pOwnChar = pOwnChar;
+	m_pOwnChar->bUseControllerRotationYaw = true;
 
 	WeaponMesh->SetSimulatePhysics(false);
 	AttachToComponent(pOwnChar->GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, FName("weapon"));
@@ -98,10 +99,14 @@ void AWeapon::EventPickUp_Implementation(ACharacter* pOwnChar)
 
 void AWeapon::EventDrop_Implementation(ACharacter* pOwnChar)
 {
-	m_pOwnChar = nullptr;
+	//m_pOwnChar = pOwnChar;
+	DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
 
 	WeaponMesh->SetSimulatePhysics(true);
-	AttachToComponent(pOwnChar->GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, FName("weapon"));
+
+	m_pOwnChar->bUseControllerRotationYaw = false;
+
+	m_pOwnChar = nullptr;
 }
 
 void AWeapon::EventResetAmmo_Implementation()
