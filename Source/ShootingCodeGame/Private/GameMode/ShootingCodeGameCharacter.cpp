@@ -97,6 +97,7 @@ void AShootingCodeGameCharacter::Tick(float DeltaSeconds)
 
 }
 
+// 총기 피격시 데미지 처리 함수
 float AShootingCodeGameCharacter::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
 	GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::Yellow, 
@@ -125,19 +126,20 @@ float AShootingCodeGameCharacter::TakeDamage(float DamageAmount, FDamageEvent co
 // 1. (F 키 입력 이벤트 발생)무기 획득 함수 입력키를 바탕으로 호출
 void AShootingCodeGameCharacter::TakeWeapon(const FInputActionValue& Value)
 {
-	GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::Yellow, TEXT("Junsik Babo TakeWeapon"));
+	GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::Yellow, TEXT("[ PressStart ] TakeWeapon"));
 	RequestTakeWeapon();
 }
 
 // 2. 무기 획득 함수 Server 로 관련 코드들을 실행 및 Response 함수 호출
 void AShootingCodeGameCharacter::RequestTakeWeapon_Implementation()
 {
-	GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::White, TEXT("Junsik Babo Req RequestTakeWeapon"));
+	GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::White, TEXT("[ Server ] Request TakeWeapon"));
 	AActor* pNearestActor = FindNearestWeapon();
 
 	if (false == IsValid(pNearestActor))
 		return;
 
+	// 소유권 부여 이 작업을 해 주어야 이 무기를 통한 작업 들 중에, 클라이언트에서도 서버로 보내줄 수 있습니다.
 	pNearestActor->SetOwner(GetController());
 
 	ResponseTakeWeapon(pNearestActor);
@@ -146,7 +148,7 @@ void AShootingCodeGameCharacter::RequestTakeWeapon_Implementation()
 // 3. Multicast 기반 함수를 통해 클라이언트와 서버 모두에게 전송
 void AShootingCodeGameCharacter::ResponseTakeWeapon_Implementation(AActor* PickActor)
 {
-	GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::White, TEXT("Junsik Babo Res ResponseTakeWeapon"));
+	GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::White, TEXT("[ Multicast ] Response TakeWeapon"));
 	
 	m_EquipWeapon = PickActor;
 
@@ -161,7 +163,7 @@ void AShootingCodeGameCharacter::ResponseTakeWeapon_Implementation(AActor* PickA
 // 4. 클라이언트로부터 호출될 함수
 void AShootingCodeGameCharacter::ResponseTakeWeaponClient_Implementation()
 {
-	GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::White, TEXT("Junsik Babo Res ResponseTakeWeaponClient"));
+	GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::White, TEXT("[ Client ] Response TakeWeapon"));
 }
 // ===========================================================
 
@@ -169,13 +171,13 @@ void AShootingCodeGameCharacter::ResponseTakeWeaponClient_Implementation()
 // ============================================= [ DropWeapon ]
 void AShootingCodeGameCharacter::DropWeapon(const FInputActionValue& Value)
 {
-	GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::Yellow, TEXT("Junsik Babo DropWeapon"));
+	GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::Yellow, TEXT("[ PressStart ] DropWeapon"));
 	RequestDropWeapon();
 }
 
 void AShootingCodeGameCharacter::RequestDropWeapon_Implementation()
 {
-	GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::White, TEXT("Junsik Babo Request DropWeapon"));
+	GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::White, TEXT("[ Server ] Request DropWeapon"));
 	AActor* pNearestActor = FindNearestWeapon();
 
 	if (false == IsValid(pNearestActor))
@@ -186,7 +188,7 @@ void AShootingCodeGameCharacter::RequestDropWeapon_Implementation()
 
 void AShootingCodeGameCharacter::ResponseDropWeapon_Implementation(AActor* PickActor)
 {
-	GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::White, TEXT("Junsik Babo Response DropWeapon"));
+	GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::White, TEXT("[ Multicast ] Response DropWeapon"));
 
 	m_EquipWeapon = PickActor;
 
@@ -233,7 +235,7 @@ void AShootingCodeGameCharacter::ResponseReload_Implementation()
 // ============================================= [ Trigger ]
 void AShootingCodeGameCharacter::Trigger(const FInputActionValue& Value)
 {
-	GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::Yellow, TEXT("Junsik Babo Shoot"));
+	GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::Yellow, TEXT("[ PressStart ] Shoot"));
 	RequestTrigger();
 }
 

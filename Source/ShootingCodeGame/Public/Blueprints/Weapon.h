@@ -50,6 +50,11 @@ public:
 
 	virtual void EventDrop_Implementation(ACharacter* pOwnChar) override;
 
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+	void EventResetAmmo();
+
+	virtual void EventResetAmmo_Implementation() override;
+
 public:
 	// 서버로부터 호출될 사격용 이벤트 함수(RPC 함수)
 	UFUNCTION(Server, Reliable)
@@ -57,6 +62,13 @@ public:
 
 public:
 	float GetFireStartLenghth();
+
+	UFUNCTION(BlueprintPure)
+	bool IsCanShoot();
+
+	bool UseAmmo();
+
+	void SetAmmo(int Ammo);
 
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
@@ -79,4 +91,14 @@ public:
 	// 총기 발사 사운드 추가
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	USoundBase* m_SoundBase;
+
+	// 총알 관련 RepNotify 함수 생성
+	UFUNCTION()
+	void OnRep_Ammo();
+
+	// Ammo 총알 관련 변수 추가
+	UPROPERTY(ReplicatedUsing = OnRep_Ammo)
+	int m_Ammo;
+
+	FTimerHandle th_BindSetOwner;
 };
