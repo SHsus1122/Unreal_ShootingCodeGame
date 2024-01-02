@@ -52,7 +52,7 @@ void AWeapon::EventTrigger_Implementation()
 
 void AWeapon::EventShoot_Implementation()
 {
-	if (false == UseAmmo())
+	if (false == IsCanShoot())
 		return;
 
 	// 총기 이펙트 추가 코드
@@ -67,6 +67,8 @@ void AWeapon::EventShoot_Implementation()
 
 	// 플레이어 카메라를 가져오기 위해서 컨트롤러를 가져옵니다.
 	APlayerController* pPlayer0 = GetWorld()->GetFirstPlayerController();
+	if (pPlayer0 != m_pOwnChar->GetController())
+		return;
 
 	// 이제 위에서 가져온 플레이어 변수로부터 카메라 위치와 방향을 가져옵니다.
 	FVector CameraLoc = pPlayer0->PlayerCameraManager->GetCameraLocation();
@@ -94,12 +96,12 @@ void AWeapon::EventPickUp_Implementation(ACharacter* pOwnChar)
 	WeaponMesh->SetSimulatePhysics(false);
 	AttachToComponent(pOwnChar->GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, FName("weapon"));
 
-	OnRep_Ammo();
+	OnUpdateAmmoToHud(m_Ammo);
 }
 
 void AWeapon::EventDrop_Implementation(ACharacter* pOwnChar)
 {
-	//m_pOwnChar = pOwnChar;
+	OnUpdateAmmoToHud(0);
 	DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
 
 	WeaponMesh->SetSimulatePhysics(true);
@@ -116,6 +118,9 @@ void AWeapon::EventResetAmmo_Implementation()
 
 void AWeapon::ReqShoot_Implementation(FVector vStart, FVector vEnd)
 {
+	if (false == UseAmmo())
+		return;
+			
 	// Hit 된 물체를 담기 위한 변수
 	FHitResult result;
 
@@ -193,7 +198,7 @@ void AWeapon::SetAmmo(int Ammo)
 	OnRep_Ammo();
 }
 
-void AWeapon::OnRep_Ammo()
+void AWeapon::OnUpdateAmmoToHud(int Ammo)
 {
 	// 처음 부터 캐릭터에 대한 정보가 없다면 종료
 	if (nullptr == m_pOwnChar)
@@ -209,5 +214,10 @@ void AWeapon::OnRep_Ammo()
 	if (nullptr == pHud)
 		return;
 
-	pHud->OnUpdateMyAmmo(m_Ammo);
+	pHud->OnUpdateMyAmmo(Ammo);
+}
+
+void AWeapon::OnRep_Ammo()
+{
+	OnUpdateAmmoToHud(m_Ammo);
 }

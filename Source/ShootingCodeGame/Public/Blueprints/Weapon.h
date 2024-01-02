@@ -70,6 +70,9 @@ public:
 
 	void SetAmmo(int Ammo);
 
+	UFUNCTION(BlueprintCallable)
+	void OnUpdateAmmoToHud(int Ammo);
+
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	class UStaticMeshComponent* WeaponMesh;

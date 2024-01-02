@@ -15,6 +15,7 @@
 #include "Net/UnrealNetwork.h"
 #include "GameMode/ShootingPlayerState.h"
 #include "Blueprints/Weapon.h"
+#include "Blueprint/UserWidget.h"
 
 DEFINE_LOG_CATEGORY(LogTemplateCharacter);
 
@@ -83,6 +84,16 @@ void AShootingCodeGameCharacter::BeginPlay()
 			Subsystem->AddMappingContext(DefaultMappingContext, 0);
 		}
 	}
+
+	check(NameTagClass);
+
+	NameTagWidget = CreateWidget<UUserWidget>(GetWorld(), NameTagClass);
+	NameTagWidget->AddToViewport();
+
+	FTimerManager& timerManager = GetWorld()->GetTimerManager();
+	timerManager.SetTimer(th_NameTag, this, &AShootingCodeGameCharacter::EventUpdateNameTag, 0.01f, true);
+
+	BindPlayerState();
 }
 
 void AShootingCodeGameCharacter::Tick(float DeltaSeconds)
@@ -100,11 +111,11 @@ void AShootingCodeGameCharacter::Tick(float DeltaSeconds)
 // 총기 피격시 데미지 처리 함수
 float AShootingCodeGameCharacter::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
-	GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::Yellow, 
-		FString::Printf(TEXT("TakeDamage DamageAmount = %f, EventInstigator = %s, DamageCasuse = %s"), 
-		DamageAmount, 
-		*EventInstigator->GetName(), 
-		*DamageCauser->GetName()));
+	//GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::Yellow, 
+	//	FString::Printf(TEXT("TakeDamage DamageAmount = %f, EventInstigator = %s, DamageCasuse = %s"), 
+	//	DamageAmount, 
+	//	*EventInstigator->GetName(), 
+	//	*DamageCauser->GetName()));
 
 	AShootingPlayerState* ps = Cast<AShootingPlayerState>(GetPlayerState());
 	if (false == IsValid(ps))
@@ -114,7 +125,8 @@ float AShootingCodeGameCharacter::TakeDamage(float DamageAmount, FDamageEvent co
 	}
 
 	ps->AddDamage(DamageAmount);
-	
+	EventUpdateNameTagHp((ps->m_CurHp) - DamageAmount, 100);
+
 	return DamageAmount;
 }
 
@@ -138,6 +150,12 @@ void AShootingCodeGameCharacter::RequestTakeWeapon_Implementation()
 
 	if (false == IsValid(pNearestActor))
 		return;
+	
+	// 이미 무기를 들고 있다면 해당 무기의 소유권을 박탈합니다.
+	if (nullptr != m_EquipWeapon)
+	{
+		m_EquipWeapon->SetOwner(nullptr);
+	}
 
 	// 소유권 부여 이 작업을 해 주어야 이 무기를 통한 작업 들 중에, 클라이언트에서도 서버로 보내줄 수 있습니다.
 	pNearestActor->SetOwner(GetController());
@@ -150,6 +168,16 @@ void AShootingCodeGameCharacter::ResponseTakeWeapon_Implementation(AActor* PickA
 {
 	GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::White, TEXT("[ Multicast ] Response TakeWeapon"));
 	
+	// 이미 무기를 들고 있다면 해당 무기를 버려줍니다.
+	if (nullptr != m_EquipWeapon)
+	{
+		IWeaponInterface* InterfaceObj = Cast<IWeaponInterface>(m_EquipWeapon);
+		if (nullptr == InterfaceObj)
+			return;
+
+		InterfaceObj->Execute_EventDrop(m_EquipWeapon, this);
+		m_EquipWeapon = nullptr;
+	}
 	m_EquipWeapon = PickActor;
 
 	IWeaponInterface* InterfaceObj = Cast<IWeaponInterface>(m_EquipWeapon);
@@ -383,6 +411,10 @@ AActor* AShootingCodeGameCharacter::FindNearestWeapon()
 	AActor* pNearestActor = nullptr;
 	for (AActor* pTarget : actors)
 	{
+		// 장착하고 있는 무기랑 인식된 주변 무기가 같다면 그냥 넘깁니다.
+		if (m_EquipWeapon == pTarget)
+			continue;
+
 		// 거리 구하는 기능을 이용합니다.(FVector::Distance)
 		// 오버랩 된 액터로부터 무기 까지의 거리 구하는 함수
 		double dist = FVector::Distance(GetActorLocation(), pTarget->GetActorLocation());
@@ -395,4 +427,30 @@ AActor* AShootingCodeGameCharacter::FindNearestWeapon()
 	}
 
 	return pNearestActor;
+}
+
+
+void AShootingCodeGameCharacter::EventUpdateNameTag_Implementation()
+{
+
+}
+
+
+void AShootingCodeGameCharacter::EventUpdateNameTagHp_Implementation(float CurHp, float MaxHp)
+{
+
+}
+
+
+void AShootingCodeGameCharacter::BindPlayerState()
+{
+	AShootingPlayerState* ps = Cast<AShootingPlayerState>(GetPlayerState());
+	if (false == IsValid(ps))
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::Red, TEXT("PS is not valid !!"));
+		return;
+	}
+
+	ps->OnRep_CurHp();
+	EventUpdateNameTagHp(ps->m_CurHp, 100);
 }

@@ -113,7 +113,7 @@ public:
 	UFUNCTION(Client, Reliable)
 	void ResponseTakeWeaponClient();
 
-	UFUNCTION(NetMulticast, Reliable)
+	UFUNCTION(Server, Reliable)
 	void RequestDropWeapon();
 
 	UFUNCTION(NetMulticast, Reliable)
@@ -145,6 +145,18 @@ public:
 	// 무기 줍기를 위한 변수 생성
 	AActor* FindNearestWeapon();
 
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)
+	void EventUpdateNameTag();
+
+	void EventUpdateNameTag_Implementation();
+
+	UFUNCTION(Server, Reliable)
+	void EventUpdateNameTagHp(float CurHp, float MaxHp);
+
+	void EventUpdateNameTagHp_Implementation(float CurHp, float MaxHp);
+
+	void BindPlayerState();
+
 public:
 	// 서버에서 클라이언트로 이 값을 보내줍니다.
 	UPROPERTY(Replicated, BlueprintReadWrite)
@@ -155,5 +167,13 @@ public:
 	AActor* m_EquipWeapon;
 
 	FTimerHandle th_BindSetOwner;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TSubclassOf<class UUserWidget> NameTagClass;
+
+	UPROPERTY(BlueprintReadWrite)
+	UUserWidget* NameTagWidget;
+	
+	FTimerHandle th_NameTag;
 };
 
