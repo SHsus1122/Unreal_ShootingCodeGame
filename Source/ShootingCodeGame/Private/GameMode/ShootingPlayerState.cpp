@@ -16,12 +16,28 @@ void AShootingPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>&
 
 	// 아래의 함수를 사용해서 서버에서 동기화를 시켜줍니다.
 	DOREPLIFETIME(AShootingPlayerState, m_CurHp);
+
+	DOREPLIFETIME(AShootingPlayerState, m_Mag);
 }
 
 void AShootingPlayerState::AddDamage(float Damage)
 {
 	// 변화값 적용한 다음에 OnRep_CurHp 함수를 호출해줘야 실제로 작동하게 됩니다.
 	m_CurHp = m_CurHp - Damage;
+
+	OnRep_CurHp();
+}
+
+void AShootingPlayerState::AddMag()
+{
+	m_Mag = m_Mag + 1;
+
+	OnRep_Mag();
+}
+
+void AShootingPlayerState::AddHp()
+{
+	m_CurHp = FMath::Clamp(m_CurHp + 50, 0, 100);
 
 	OnRep_CurHp();
 }
@@ -36,5 +52,14 @@ void AShootingPlayerState::OnRep_CurHp()
 	if (m_Dele_UpdateHp.IsBound())
 	{
 		m_Dele_UpdateHp.Broadcast(m_CurHp, 100);
+	}
+}
+
+void AShootingPlayerState::OnRep_Mag()
+{
+	GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Yellow, FString::Printf(TEXT("OnRep_Mag = %f"), m_Mag));
+	if (m_Dele_UpdateMag.IsBound())
+	{
+		m_Dele_UpdateMag.Broadcast(m_Mag);
 	}
 }

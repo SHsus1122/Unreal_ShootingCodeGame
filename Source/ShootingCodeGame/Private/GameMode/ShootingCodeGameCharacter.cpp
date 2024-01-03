@@ -250,8 +250,6 @@ void AShootingCodeGameCharacter::ResponseReload_Implementation()
 		return;
 
 	InterfaceObj->Execute_EventReload(m_EquipWeapon);
-
-	UGameplayStatics::GetWorldDeltaSeconds(GetWorld());
 }
 // ===========================================================
 
@@ -441,6 +439,37 @@ void AShootingCodeGameCharacter::EventUpdateNameTagHp_Implementation(float CurHp
 }
 
 
+void AShootingCodeGameCharacter::EventGetItem_Implementation(EItemType itemType)
+{
+	//GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::White, TEXT("EventGetItem"));
+	AShootingPlayerState* pPS = Cast<AShootingPlayerState>(GetPlayerState());
+	if (false == IsValid(pPS))
+		return;
+
+	switch (itemType)
+	{
+	case EItemType::IT_MAG:
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::White, TEXT("EventGetItem Mag"));
+
+		pPS->AddMag();
+	}
+	break;
+
+	case EItemType::IT_HEAL:
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::White, TEXT("EventGetItem Heal"));
+
+		pPS->AddHp();
+	}
+	break;
+
+	default:
+		break;
+	}
+}
+
+
 void AShootingCodeGameCharacter::BindPlayerState()
 {
 	AShootingPlayerState* ps = Cast<AShootingPlayerState>(GetPlayerState());
@@ -449,6 +478,7 @@ void AShootingCodeGameCharacter::BindPlayerState()
 		GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::White, TEXT("BindPlayerState Success"));
 
 		ps->m_Dele_UpdateHp.AddDynamic(this, &AShootingCodeGameCharacter::EventUpdateNameTagHp);
+
 		EventUpdateNameTagHp(ps->m_CurHp, 100);
 		return;
 	}
@@ -456,3 +486,5 @@ void AShootingCodeGameCharacter::BindPlayerState()
 	FTimerManager& timerManager = GetWorld()->GetTimerManager();
 	timerManager.SetTimer(th_BindPlayerState, this, &AShootingCodeGameCharacter::BindPlayerState, 0.01f, false);
 }
+
+

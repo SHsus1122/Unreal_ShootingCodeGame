@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "ItemInterface.h"
 #include "GameFramework/Character.h"
 #include "Logging/LogMacros.h"
 #include "ShootingCodeGameCharacter.generated.h"
@@ -16,7 +17,7 @@ struct FInputActionValue;
 DECLARE_LOG_CATEGORY_EXTERN(LogTemplateCharacter, Log, All);
 
 UCLASS(config=Game)
-class AShootingCodeGameCharacter : public ACharacter
+class AShootingCodeGameCharacter : public ACharacter, public IItemInterface
 {
 	GENERATED_BODY()
 
@@ -157,6 +158,12 @@ public:
 
 	void BindPlayerState();
 
+public:
+	// ItemInterface
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)
+	void EventGetItem(EItemType itemType);
+
+	void EventGetItem_Implementation(EItemType itemType) override;
 
 public:
 	// 서버에서 클라이언트로 이 값을 보내줍니다.
@@ -167,13 +174,13 @@ public:
 	UPROPERTY(BlueprintReadWrite)
 	AActor* m_EquipWeapon;
 
-	FTimerHandle th_BindSetOwner;
-
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TSubclassOf<class UUserWidget> NameTagClass;
 
 	UPROPERTY(BlueprintReadWrite)
 	UUserWidget* NameTagWidget;
+
+	FTimerHandle th_BindSetOwner;
 	
 	FTimerHandle th_NameTag;
 
