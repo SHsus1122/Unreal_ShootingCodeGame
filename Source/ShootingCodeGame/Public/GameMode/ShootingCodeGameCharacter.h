@@ -150,12 +150,13 @@ public:
 
 	void EventUpdateNameTag_Implementation();
 
-	UFUNCTION(Server, Reliable)
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)
 	void EventUpdateNameTagHp(float CurHp, float MaxHp);
 
 	void EventUpdateNameTagHp_Implementation(float CurHp, float MaxHp);
 
 	void BindPlayerState();
+
 
 public:
 	// 서버에서 클라이언트로 이 값을 보내줍니다.
@@ -175,5 +176,7 @@ public:
 	UUserWidget* NameTagWidget;
 	
 	FTimerHandle th_NameTag;
+
+	FTimerHandle th_BindPlayerState;
 };
 

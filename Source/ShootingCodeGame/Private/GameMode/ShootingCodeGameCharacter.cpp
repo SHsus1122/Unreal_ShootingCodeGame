@@ -26,7 +26,7 @@ AShootingCodeGameCharacter::AShootingCodeGameCharacter()
 {
 	// Set size for collision capsule
 	GetCapsuleComponent()->InitCapsuleSize(42.f, 96.0f);
-		
+
 	// Don't rotate when the controller rotates. Let that just affect the camera.
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationYaw = false;
@@ -99,7 +99,7 @@ void AShootingCodeGameCharacter::BeginPlay()
 void AShootingCodeGameCharacter::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
-	
+
 	// 서버에서만 정보를 넣어줍니다.
 	if (HasAuthority() == true)
 	{
@@ -125,7 +125,6 @@ float AShootingCodeGameCharacter::TakeDamage(float DamageAmount, FDamageEvent co
 	}
 
 	ps->AddDamage(DamageAmount);
-	EventUpdateNameTagHp((ps->m_CurHp) - DamageAmount, 100);
 
 	return DamageAmount;
 }
@@ -150,7 +149,7 @@ void AShootingCodeGameCharacter::RequestTakeWeapon_Implementation()
 
 	if (false == IsValid(pNearestActor))
 		return;
-	
+
 	// 이미 무기를 들고 있다면 해당 무기의 소유권을 박탈합니다.
 	if (nullptr != m_EquipWeapon)
 	{
@@ -167,7 +166,7 @@ void AShootingCodeGameCharacter::RequestTakeWeapon_Implementation()
 void AShootingCodeGameCharacter::ResponseTakeWeapon_Implementation(AActor* PickActor)
 {
 	GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::White, TEXT("[ Multicast ] Response TakeWeapon"));
-	
+
 	// 이미 무기를 들고 있다면 해당 무기를 버려줍니다.
 	if (nullptr != m_EquipWeapon)
 	{
@@ -290,7 +289,7 @@ void AShootingCodeGameCharacter::SetupPlayerInputComponent(UInputComponent* Play
 {
 	// Set up action bindings
 	if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(PlayerInputComponent)) {
-		
+
 		// Jumping
 		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Started, this, &ACharacter::Jump);
 		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &ACharacter::StopJumping);
@@ -336,7 +335,7 @@ void AShootingCodeGameCharacter::Move(const FInputActionValue& Value)
 
 		// get forward vector
 		const FVector ForwardDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
-	
+
 		// get right vector 
 		const FVector RightDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
 
@@ -445,12 +444,15 @@ void AShootingCodeGameCharacter::EventUpdateNameTagHp_Implementation(float CurHp
 void AShootingCodeGameCharacter::BindPlayerState()
 {
 	AShootingPlayerState* ps = Cast<AShootingPlayerState>(GetPlayerState());
-	if (false == IsValid(ps))
+	if (IsValid(ps))
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::Red, TEXT("PS is not valid !!"));
+		GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::White, TEXT("BindPlayerState Success"));
+
+		ps->m_Dele_UpdateHp.AddDynamic(this, &AShootingCodeGameCharacter::EventUpdateNameTagHp);
+		EventUpdateNameTagHp(ps->m_CurHp, 100);
 		return;
 	}
 
-	ps->OnRep_CurHp();
-	EventUpdateNameTagHp(ps->m_CurHp, 100);
+	FTimerManager& timerManager = GetWorld()->GetTimerManager();
+	timerManager.SetTimer(th_BindPlayerState, this, &AShootingCodeGameCharacter::BindPlayerState, 0.01f, false);
 }
