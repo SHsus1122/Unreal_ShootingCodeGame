@@ -441,9 +441,8 @@ void AShootingCodeGameCharacter::EventUpdateNameTagHp_Implementation(float CurHp
 
 void AShootingCodeGameCharacter::EventGetItem_Implementation(EItemType itemType)
 {
-	//GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::White, TEXT("EventGetItem"));
 	AShootingPlayerState* pPS = Cast<AShootingPlayerState>(GetPlayerState());
-	if (false == IsValid(pPS))
+	if (!IsValid(pPS))
 		return;
 
 	switch (itemType)
@@ -455,7 +454,6 @@ void AShootingCodeGameCharacter::EventGetItem_Implementation(EItemType itemType)
 		pPS->AddMag();
 	}
 	break;
-
 	case EItemType::IT_HEAL:
 	{
 		GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::White, TEXT("EventGetItem Heal"));
@@ -463,7 +461,6 @@ void AShootingCodeGameCharacter::EventGetItem_Implementation(EItemType itemType)
 		pPS->AddHp();
 	}
 	break;
-
 	default:
 		break;
 	}
