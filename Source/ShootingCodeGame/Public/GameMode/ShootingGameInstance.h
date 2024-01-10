@@ -85,4 +85,76 @@ public:
 	*	@param bWasSuccessful true if the async action completed without error, false if there was an error
 	*/
 	void OnFindSessionsComplete(bool bWasSuccessful);
+
+
+
+	//================================== [ Join Session ]
+	/**
+	*	Joins a session via a search result
+	*
+	*	@param SessionName name of session
+	*	@param SearchResult Session to join
+	*
+	*	@return bool true if successful, false otherwise
+	*/
+	bool JoinSession(TSharedPtr<const FUniqueNetId> UserId, FName SessionName, const FOnlineSessionSearchResult& SearchResult);
+
+	/** Delegate for joining a session */
+	FOnJoinSessionCompleteDelegate OnJoinSessionCompleteDelegate;
+
+	/** Handle to registered delegate for joining a session */
+	FDelegateHandle OnJoinSessionCompleteDelegateHandle;
+
+	/**
+	*	Delegate fired when a session join request has completed
+	*
+	*	@param SessionName the name of the session this callback is for
+	*	@param bWasSuccessful true if the async action completed without error, false if there was an error
+	*/
+	void OnJoinSessionComplete(FName SessionName, EOnJoinSessionCompleteResult::Type Result);
+
+
+
+	//================================== [ Delete Session ]
+	/** Delegate for destroying a session */
+	FOnDestroySessionCompleteDelegate OnDestroySessionCompleteDelegate;
+
+	/** Handle to registered delegate for destroying a session */
+	FDelegateHandle OnDestroySessionCompleteDelegateHandle;
+
+	/**
+	*	Delegate fired when a destroying an online session has completed
+	*
+	*	@param SessionName the name of the session this callback is for
+	*	@param bWasSuccessful true if the async action completed without error, false if there was an error
+	*/
+	virtual void OnDestroySessionComplete(FName SessionName, bool bWasSuccessful);
+
+	virtual void Shutdown() override;
+
+
+
+	//================================== [ BlueprintCall Function ]
+	UFUNCTION(BlueprintCallable, Category = "Network|Test")
+	void StartOnlineGame();
+
+	// Find Session
+	UFUNCTION(BlueprintCallable, Category = "Network|Test")
+	void FindOnlineGames();
+
+	// Join Session
+	UFUNCTION(BlueprintCallable, Category = "Network|Test")
+	void JoinOnlineGame();
+
+	// Destroy Session
+	UFUNCTION(BlueprintCallable, Category = "Network|Test")
+	void DestroySessionAndLeaveGame();
+
+public:
+	// const TArray<FBlueprintSessionResult>& SessionResults
+	// 수정 불가 및 주소값으로 전달함으로 해서 복사는 안 일어나게 세팅 합니다.
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+	void OnFindSessionResult(const TArray<FBlueprintSessionResult>& SessionResults);
+	
+	void OnFindSessionResult_Implementation(const TArray<FBlueprintSessionResult>& SessionResults);
 };

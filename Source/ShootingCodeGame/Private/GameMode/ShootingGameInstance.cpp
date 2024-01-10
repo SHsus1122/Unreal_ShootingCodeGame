@@ -4,6 +4,7 @@
 #include "GameMode/ShootingGameInstance.h"
 #include "OnlineSessionSettings.h"
 #include "Online/OnlineSessionNames.h"
+#include "FindSessionsCallbackProxy.h"
 
 
 UShootingGameInstance::UShootingGameInstance(const FObjectInitializer& ObjectInitializer) 
@@ -12,6 +13,15 @@ UShootingGameInstance::UShootingGameInstance(const FObjectInitializer& ObjectIni
 	/** Bind function for CREATING a Session */
 	OnCreateSessionCompleteDelegate = FOnCreateSessionCompleteDelegate::CreateUObject(this, &UShootingGameInstance::OnCreateSessionComplete);
 	OnStartSessionCompleteDelegate = FOnStartSessionCompleteDelegate::CreateUObject(this, &UShootingGameInstance::OnStartOnlineGameComplete);
+
+	/** Bind function for FINDING a Session */
+	OnFindSessionsCompleteDelegate = FOnFindSessionsCompleteDelegate::CreateUObject(this, &UShootingGameInstance::OnFindSessionsComplete);
+
+	/** Bind function for JOINING a Session */
+	OnJoinSessionCompleteDelegate = FOnJoinSessionCompleteDelegate::CreateUObject(this, &UShootingGameInstance::OnJoinSessionComplete);
+
+	/** Bind function for DESTROYING a Session */
+	OnDestroySessionCompleteDelegate = FOnDestroySessionCompleteDelegate::CreateUObject(this, &UShootingGameInstance::OnDestroySessionComplete);
 }
 
 
@@ -46,7 +56,7 @@ bool UShootingGameInstance::HostSession(TSharedPtr<const FUniqueNetId> UserId, F
 			SessionSettings->bAllowJoinViaPresence = true;
 			SessionSettings->bAllowJoinViaPresenceFriendsOnly = false;
 
-			SessionSettings->Set(SETTING_MAPNAME, FString("NewMap"), EOnlineDataAdvertisementType::ViaOnlineService);
+			SessionSettings->Set(SETTING_MAPNAME, FString("ThirdPersonMap"), EOnlineDataAdvertisementType::ViaOnlineService);
 
 			// Set the delegate to the Handle of the SessionInterface
 			OnCreateSessionCompleteDelegateHandle = Sessions->AddOnCreateSessionCompleteDelegate_Handle(OnCreateSessionCompleteDelegate);
@@ -111,7 +121,7 @@ void UShootingGameInstance::OnStartOnlineGameComplete(FName SessionName, bool bW
 	// If the start was successful, we can open a NewMap if we want. Make sure to use "listen" as a parameter!
 	if (bWasSuccessful)
 	{
-		UGameplayStatics::OpenLevel(GetWorld(), "NewMap", true, "listen");
+		UGameplayStatics::OpenLevel(GetWorld(), "ThirdPersonMap", true, "listen");
 	}
 }
 
@@ -182,6 +192,10 @@ void UShootingGameInstance::OnFindSessionsComplete(bool bWasSuccessful)
 			// If we have found at least 1 session, we just going to debug them. You could add them to a list of UMG Widgets, like it is done in the BP version!
 			if (SessionSearch->SearchResults.Num() > 0)
 			{
+				// Unreal Engine에서 세션 검색 결과를 동적으로 저장하기 위해 TArray를 사용합니다.
+				TArray<FBlueprintSessionResult> arrResult;
+				arrResult.SetNum(SessionSearch->SearchResults.Num());
+
 				// "SessionSearch->SearchResults" is an Array that contains all the information. You can access the Session in this and get a lot of information.
 				// This can be customized later on with your own classes to add more information that can be set and displayed
 				for (int32 SearchIdx = 0; SearchIdx < SessionSearch->SearchResults.Num(); SearchIdx++)
@@ -189,8 +203,233 @@ void UShootingGameInstance::OnFindSessionsComplete(bool bWasSuccessful)
 					// OwningUserName is just the SessionName for now. I guess you can create your own Host Settings class and GameSession Class and add a proper GameServer Name here.
 					// This is something you can't do in Blueprint for example!
 					GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Red, FString::Printf(TEXT("Session Number: %d | Sessionname: %s "), SearchIdx + 1, *(SessionSearch->SearchResults[SearchIdx].Session.OwningUserName)));
+
+					// Index 별로 OnlineSessionResult 가 설정됩니다.
+					arrResult[SearchIdx].OnlineResult = SessionSearch->SearchResults[SearchIdx];
 				}
+
+				OnFindSessionResult(arrResult);
 			}
 		}
 	}
+}
+
+
+
+//================================== [ Join Session ]
+bool UShootingGameInstance::JoinSession(TSharedPtr<const FUniqueNetId> UserId, FName SessionName, const FOnlineSessionSearchResult& SearchResult)
+{
+	// Return bool
+	bool bSuccessful = false;
+
+	// Get OnlineSubsystem we want to work with
+	IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get();
+
+	if (OnlineSub)
+	{
+		// Get SessionInterface from the OnlineSubsystem
+		IOnlineSessionPtr Sessions = OnlineSub->GetSessionInterface();
+
+		if (Sessions.IsValid() && UserId.IsValid())
+		{
+			// Set the Handle again
+			OnJoinSessionCompleteDelegateHandle = Sessions->AddOnJoinSessionCompleteDelegate_Handle(OnJoinSessionCompleteDelegate);
+
+			// Call the "JoinSession" Function with the passed "SearchResult". The "SessionSearch->SearchResults" can be used to get such a
+			// "FOnlineSessionSearchResult" and pass it. Pretty straight forward!
+			bSuccessful = Sessions->JoinSession(*UserId, SessionName, SearchResult);
+		}
+	}
+
+	return bSuccessful;
+}
+
+void UShootingGameInstance::OnJoinSessionComplete(FName SessionName, EOnJoinSessionCompleteResult::Type Result)
+{
+	GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Red, FString::Printf(TEXT("OnJoinSessionComplete %s, %d"), *SessionName.ToString(), static_cast<int32>(Result)));
+
+	// Get the OnlineSubsystem we want to work with
+	IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get();
+	if (OnlineSub)
+	{
+		// Get SessionInterface from the OnlineSubsystem
+		IOnlineSessionPtr Sessions = OnlineSub->GetSessionInterface();
+
+		if (Sessions.IsValid())
+		{
+			// Clear the Delegate again
+			Sessions->ClearOnJoinSessionCompleteDelegate_Handle(OnJoinSessionCompleteDelegateHandle);
+
+			// Get the first local PlayerController, so we can call "ClientTravel" to get to the Server Map
+			// This is something the Blueprint Node "Join Session" does automatically!
+			APlayerController* const PlayerController = GetFirstLocalPlayerController();
+
+			// We need a FString to use ClientTravel and we can let the SessionInterface contruct such a
+			// String for us by giving him the SessionName and an empty String. We want to do this, because
+			// Every OnlineSubsystem uses different TravelURLs
+			FString TravelURL;
+
+			if (PlayerController && Sessions->GetResolvedConnectString(SessionName, TravelURL))
+			{
+				// Finally call the ClienTravel. If you want, you could print the TravelURL to see
+				// how it really looks like
+				PlayerController->ClientTravel(TravelURL, ETravelType::TRAVEL_Absolute);
+			}
+		}
+	}
+}
+
+
+
+//================================== [ Delete Session ]
+void UShootingGameInstance::OnDestroySessionComplete(FName SessionName, bool bWasSuccessful)
+{
+	GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Red, FString::Printf(TEXT("OnDestroySessionComplete %s, %d"), *SessionName.ToString(), bWasSuccessful));
+
+	// Get the OnlineSubsystem we want to work with
+	IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get();
+	if (OnlineSub)
+	{
+		// Get the SessionInterface from the OnlineSubsystem
+		IOnlineSessionPtr Sessions = OnlineSub->GetSessionInterface();
+
+		if (Sessions.IsValid())
+		{
+			// Clear the Delegate
+			Sessions->ClearOnDestroySessionCompleteDelegate_Handle(OnDestroySessionCompleteDelegateHandle);
+
+			// If it was successful, we just load another level (could be a MainMenu!)
+			if (bWasSuccessful)
+			{
+				UGameplayStatics::OpenLevel(GetWorld(), "ThirdPersonExampleMap", true);
+			}
+		}
+	}
+}
+
+void UShootingGameInstance::Shutdown()
+{
+	DestroySessionAndLeaveGame();
+
+	Super::Shutdown();
+}
+
+
+
+//================================== [ BlueprintCall Function ]
+void UShootingGameInstance::StartOnlineGame()
+{
+	// Creating a local player where we can get the UserID from
+	ULocalPlayer* const Player = GetFirstGamePlayer();
+	if (Player == nullptr)
+		return;
+
+	IOnlineSubsystem* pOnlineSubsystem = IOnlineSubsystem::Get();
+	if (pOnlineSubsystem == nullptr)
+		return;
+
+	IOnlineIdentityPtr IdentityInterface = pOnlineSubsystem->GetIdentityInterface();
+	if (!IdentityInterface.IsValid())
+		return;
+
+	// 유저 고유 아이디 가져오는 방법입니다.
+	const FUniqueNetIdPtr UniqueNetId = IdentityInterface->GetUniquePlayerId(Player->GetControllerId());
+	if (!UniqueNetId.IsValid())
+		return;
+
+	// Call our custom HostSession function. GameSessionName is a GameInstance variable
+	HostSession(UniqueNetId, GameSessionName, true, true, 4);
+}
+
+
+// Find Session
+void UShootingGameInstance::FindOnlineGames()
+{
+	// Creating a local player where we can get the UserID from
+	ULocalPlayer* const Player = GetFirstGamePlayer();
+	if (Player == nullptr)
+		return;
+
+	IOnlineSubsystem* pOnlineSubsystem = IOnlineSubsystem::Get();
+	if (pOnlineSubsystem == nullptr)
+		return;
+
+	IOnlineIdentityPtr IdentityInterface = pOnlineSubsystem->GetIdentityInterface();
+	if (!IdentityInterface.IsValid())
+		return;
+
+	// 유저 고유 아이디 가져오는 방법입니다.
+	const FUniqueNetIdPtr UniqueNetId = IdentityInterface->GetUniquePlayerId(Player->GetControllerId());
+	if (!UniqueNetId.IsValid())
+		return;
+
+	FindSessions(UniqueNetId, true, true);
+}
+
+
+// Join Session
+void UShootingGameInstance::JoinOnlineGame()
+{
+	// Creating a local player where we can get the UserID from
+	ULocalPlayer* const Player = GetFirstGamePlayer();
+	if (Player == nullptr)
+		return;
+
+	IOnlineSubsystem* pOnlineSubsystem = IOnlineSubsystem::Get();
+	if (pOnlineSubsystem == nullptr)
+		return;
+
+	IOnlineIdentityPtr IdentityInterface = pOnlineSubsystem->GetIdentityInterface();
+	if (!IdentityInterface.IsValid())
+		return;
+
+	// 유저 고유 아이디 가져오는 방법입니다.
+	const FUniqueNetIdPtr UniqueNetId = IdentityInterface->GetUniquePlayerId(Player->GetControllerId());
+	if (!UniqueNetId.IsValid())
+		return;
+
+	// Just a SearchResult where we can save the one we want to use, for the case we find more than one!
+	FOnlineSessionSearchResult SearchResult;
+
+	// If the Array is not empty, we can go through it
+	if (SessionSearch->SearchResults.Num() > 0)
+	{
+		for (int32 i = 0; i < SessionSearch->SearchResults.Num(); i++)
+		{
+			// To avoid something crazy, we filter sessions from ourself
+			if (SessionSearch->SearchResults[i].Session.OwningUserId != Player->GetPreferredUniqueNetId())
+			{
+				SearchResult = SessionSearch->SearchResults[i];
+
+				// Once we found sounce a Session that is not ours, just join it. Instead of using a for loop, you could
+				// use a widget where you click on and have a reference for the GameSession it represents which you can use
+				// here
+				JoinSession(UniqueNetId, GameSessionName, SearchResult);
+				break;
+			}
+		}
+	}
+}
+
+
+// Destroy Session
+void UShootingGameInstance::DestroySessionAndLeaveGame()
+{
+	IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get();
+	if (OnlineSub)
+	{
+		IOnlineSessionPtr Sessions = OnlineSub->GetSessionInterface();
+
+		if (Sessions.IsValid())
+		{
+			Sessions->AddOnDestroySessionCompleteDelegate_Handle(OnDestroySessionCompleteDelegate);
+
+			Sessions->DestroySession(GameSessionName);
+		}
+	}
+}
+
+void UShootingGameInstance::OnFindSessionResult_Implementation(const TArray<FBlueprintSessionResult>& SessionResults)
+{
+	
 }
