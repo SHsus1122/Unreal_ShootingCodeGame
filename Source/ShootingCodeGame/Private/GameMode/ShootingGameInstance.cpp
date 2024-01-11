@@ -121,7 +121,7 @@ void UShootingGameInstance::OnStartOnlineGameComplete(FName SessionName, bool bW
 	// If the start was successful, we can open a NewMap if we want. Make sure to use "listen" as a parameter!
 	if (bWasSuccessful)
 	{
-		UGameplayStatics::OpenLevel(GetWorld(), "ThirdPersonMap", true, "listen");
+		UGameplayStatics::OpenLevel(GetWorld(), "LobbyLevel", true, "listen");
 	}
 }
 
@@ -271,9 +271,19 @@ void UShootingGameInstance::OnJoinSessionComplete(FName SessionName, EOnJoinSess
 
 			if (PlayerController && Sessions->GetResolvedConnectString(SessionName, TravelURL))
 			{
+				FString strIP, strPort;
+				int32 nPort = 7777;
+				// 기존 예시 : 192.168.3.118
+				TravelURL.Split(TEXT(":"), &strIP, &strPort, ESearchCase::IgnoreCase, ESearchDir::FromStart);
+
+				// strIP = 192.168.3.118
+				// strPort = 0
+				FString NewTravelURL = FString::Printf(TEXT("%s:%d"), *strIP, nPort);
+				// 변경 후 예시 : 192.168.3.118:7777
+
 				// Finally call the ClienTravel. If you want, you could print the TravelURL to see
 				// how it really looks like
-				PlayerController->ClientTravel(TravelURL, ETravelType::TRAVEL_Absolute);
+				PlayerController->ClientTravel(NewTravelURL, ETravelType::TRAVEL_Absolute);
 			}
 		}
 	}
@@ -368,7 +378,7 @@ void UShootingGameInstance::FindOnlineGames()
 
 
 // Join Session
-void UShootingGameInstance::JoinOnlineGame()
+void UShootingGameInstance::JoinOnlineGame(FBlueprintSessionResult SessionResult)
 {
 	// Creating a local player where we can get the UserID from
 	ULocalPlayer* const Player = GetFirstGamePlayer();
@@ -388,27 +398,8 @@ void UShootingGameInstance::JoinOnlineGame()
 	if (!UniqueNetId.IsValid())
 		return;
 
-	// Just a SearchResult where we can save the one we want to use, for the case we find more than one!
-	FOnlineSessionSearchResult SearchResult;
-
-	// If the Array is not empty, we can go through it
-	if (SessionSearch->SearchResults.Num() > 0)
-	{
-		for (int32 i = 0; i < SessionSearch->SearchResults.Num(); i++)
-		{
-			// To avoid something crazy, we filter sessions from ourself
-			if (SessionSearch->SearchResults[i].Session.OwningUserId != Player->GetPreferredUniqueNetId())
-			{
-				SearchResult = SessionSearch->SearchResults[i];
-
-				// Once we found sounce a Session that is not ours, just join it. Instead of using a for loop, you could
-				// use a widget where you click on and have a reference for the GameSession it represents which you can use
-				// here
-				JoinSession(UniqueNetId, GameSessionName, SearchResult);
-				break;
-			}
-		}
-	}
+	// 내가 선택한 서버에 대한 정보를 넘겨주도록 합니다.(SessionResult 로)
+	JoinSession(UniqueNetId, GameSessionName, SessionResult.OnlineResult);
 }
 
 
