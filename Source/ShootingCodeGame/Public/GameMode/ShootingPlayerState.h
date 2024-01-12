@@ -39,6 +39,7 @@ public:
 	UFUNCTION()
 	void OnRep_Mag();
 
+
 public:
 
 	// RepNotify º¯¼ö

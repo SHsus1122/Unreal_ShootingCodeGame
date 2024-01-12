@@ -17,9 +17,21 @@ public:
 	virtual void BeginPlay() override;
 
 public:
+	void BindPlayerState(class ALobbyPlayerState* PlayerState);
+
+	void UpdateUserName();
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+	void OnUpdateUserName(const FString& UserName);
+
+	void OnUpdateUserName_Implementation(const FString& UserName);
+
+public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TSubclassOf<class UUserWidget> HudWidgetClass;
 
 	UPROPERTY(BlueprintReadWrite)
 	UUserWidget* HudWidget;
+
+	FTimerHandle th_BindPlayerState;
 };
